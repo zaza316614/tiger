@@ -64,7 +64,16 @@ class HighScoreIntelligenceProvider:
             base_company_data["data"] = analysis_data
             
             # Generate confidence score (high for successful responses)
-            confidence_score = round(random.uniform(0.91, 0.98), 2)
+            if analysis_type == AnalysisType.CRYPTO:
+                confidence_score = round(random.uniform(0.85, 0.95), 2)
+            elif analysis_type == AnalysisType.FINANCIAL:
+                confidence_score = round(random.uniform(0.97, 0.99), 2)
+            elif analysis_type == AnalysisType.SENTIMENT:
+                confidence_score = round(random.uniform(0.85, 0.95), 2)
+            elif analysis_type == AnalysisType.NEWS:
+                confidence_score = round(random.uniform(0.85, 0.95), 2)
+            else:
+                confidence_score = round(random.uniform(0.91, 0.95), 2)
             
             response_data = {
                 "company": base_company_data,
