@@ -32,7 +32,7 @@ class HighScoreIntelligenceProvider:
                         "name": company["name"] if "name" in company and company["name"] != "" else info.get('longName', f"{ticker.upper()} Corporation"),
                         "sector": company["sector"] if "sector" in company and company["sector"] != "" else info.get('sector', "Technology"), 
                         "exchange": company["exchange"] if "exchange" in company and company["exchange"] != "" else info.get("fullExchangeName", "NASDAQ"),
-                        "market_cap": company["marketCap"] if "marketCap" in company and company["marketCap"] != 0 else info.get('marketCap', random.randint(1000000000, 100000000000))
+                        "market_cap": info.get('marketCap', random.randint(1000000000, 100000000000))
                     }
                     exists = True
                     break
