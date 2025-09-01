@@ -31,6 +31,7 @@ class HighScoreIntelligenceProvider:
             yf_ticker = yf.Ticker(ticker.upper())
             info = yf_ticker.info
             news = yf_ticker.news or []
+            bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 Fetched info for {ticker}: {len(news)}")
 
             exists = False
             for company_data in self.company_database:
