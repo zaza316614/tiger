@@ -2,10 +2,17 @@ import json
 import random
 from datetime import datetime, timezone, timedelta
 import yfinance as yf
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 import bittensor as bt
 
 from neurons.protocol import AnalysisType, IntelligenceResponse
+
+
+# Ensure VADER is ready
+nltk.download('vader_lexicon')
+sia = SentimentIntensityAnalyzer()
 
 
 class HighScoreIntelligenceProvider:
@@ -23,6 +30,7 @@ class HighScoreIntelligenceProvider:
 
             yf_ticker = yf.Ticker(ticker.upper())
             info = yf_ticker.info
+            news = yf_ticker.news or []
 
             exists = False
             for company_data in self.company_database:
@@ -56,7 +64,7 @@ class HighScoreIntelligenceProvider:
             elif analysis_type == AnalysisType.SENTIMENT:
                 analysis_data = self._generate_sentiment_data(ticker, additional_params)
             elif analysis_type == AnalysisType.NEWS:
-                analysis_data = self._generate_news_data(ticker, additional_params)
+                analysis_data = self._generate_news_data(ticker, additional_params, news)
             else:
                 analysis_data = {}
             
@@ -277,68 +285,75 @@ class HighScoreIntelligenceProvider:
             "timePeriod": timeframe
         }
 
-    def _generate_news_data(self, ticker: str, additional_params: dict) -> dict:
+    def _generate_news_data(self, ticker: str, additional_params: dict, news: list) -> dict:
         """Generate news analysis data for maximum scores."""
         max_articles = additional_params.get("max_articles", 10)
         timeframe = additional_params.get("timeframe", "7D")
-        
         # Convert timeframe to days
         timeframe_days = {"1D": 1, "3D": 3, "7D": 7, "14D": 14}.get(timeframe, 7)
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=timeframe_days)
+        filtered = []
         
-        # Generate articles
-        articles = []
-        sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
-        sources = ["Reuters", "Bloomberg", "MarketWatch", "CNBC", "TechCrunch", "Financial Times", "WSJ"]
-        
-        article_templates = [
-            f"{ticker.upper()} Reports Strong Q4 Earnings Beat",
-            f"{ticker.upper()} Announces New Product Innovation",
-            f"Analysts Upgrade {ticker.upper()} Price Target",
-            f"{ticker.upper()} Stock Reaches New 52-Week High",
-            f"{ticker.upper()} CEO Discusses Future Strategy",
-            f"Market Outlook for {ticker.upper()} Remains Positive",
-            f"{ticker.upper()} Expands Market Presence",
-            f"Investment Firm Increases {ticker.upper()} Holdings",
-            f"{ticker.upper()} Technology Breakthrough Announced",
-            f"Q4 {ticker.upper()} Financial Results Analysis"
-        ]
-        
-        for i in range(min(max_articles, len(article_templates))):
-            sentiment = random.choice(["positive", "negative", "neutral"])
-            sentiment_counts[sentiment] += 1
+        for art in news:
+            art = art['content']
+            try:
+                published = datetime.datetime.strptime(art['pubDate'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+            except Exception:
+                continue
             
-            article_date = datetime.now(timezone.utc) - timedelta(
-                days=random.randint(0, timeframe_days),
-                hours=random.randint(0, 23)
-            )
+            if published < cutoff:
+                continue
             
-            source = random.choice(sources)
-            url = '-'.join(source.lower().split(" "))
-            article = {
-                "title": article_templates[i],
-                "summary": f"Detailed analysis of {ticker.upper()}'s recent performance and market position.",
-                "url": f"https://www.{url}.com/{ticker.lower()}-current-news-{i+1}",
+            title = art.get("title", "")
+            summary = art.get("summary", "")
+            url = art.get("canonicalUrl", {}).get("url", "")
+            source = art.get("provider", {}).get("displayName", "Unknown")
+            
+            # Sentiment
+            text_for_sentiment = summary or title
+            scores = sia.polarity_scores(text_for_sentiment)
+
+            def classify_sentiment(compound_score, pos_th=0.05, neg_th=-0.05):
+                if compound_score >= pos_th:
+                    return "positive"
+                elif compound_score <= neg_th:
+                    return "negative"
+                else:
+                    return "neutral"
+    
+            sentiment = classify_sentiment(scores["compound"])
+            relevance = min(max(abs(scores["compound"]), 0.0), 1.0)
+            
+            filtered.append({
+                "title": title,
+                "summary": summary,
+                "url": url,
                 "source": source,
-                "published_date": article_date.isoformat(),
-                "relevance_score": round(random.uniform(0.5, 1.0), 2),
+                "published_date": published.isoformat(),
+                "relevance_score": relevance,
                 "sentiment": sentiment
+            })
+        
+        articles = filtered[:max_articles]
+
+        def summarize(articles):
+            breakdown = {"positive": 0, "negative": 0, "neutral": 0}
+            for a in articles:
+                breakdown[a["sentiment"]] += 1
+            
+            dates = [a["published_date"] for a in articles]
+            return {
+                "total_articles": len(articles),
+                "date_range": {
+                    "start": min(dates) if dates else None,
+                    "end": max(dates) if dates else None
+                },
+                "sentiment_breakdown": breakdown,
+                "top_sources": sorted({a["source"] for a in articles})
             }
-            articles.append(article)
         
-        # Calculate date range
-        start_date = datetime.now(timezone.utc) - timedelta(days=timeframe_days)
-        end_date = datetime.now(timezone.utc)
-        
-        # Generate summary
-        summary = {
-            "total_articles": len(articles),
-            "date_range": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat()
-            },
-            "sentiment_breakdown": sentiment_counts,
-            "top_sources": random.sample(sources, min(5, len(sources)))
-        }
+        summary = summarize(articles)
         
         return {
             "articles": articles,
