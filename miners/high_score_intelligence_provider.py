@@ -31,17 +31,16 @@ class HighScoreIntelligenceProvider:
             yf_ticker = yf.Ticker(ticker.upper())
             info = yf_ticker.info
             news = yf_ticker.news or []
-            bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 Fetched info for {ticker}: {len(news)}")
 
             exists = False
             for company_data in self.company_database:
                 company = company_data["company"]
                 if ticker.upper() == company["ticker"].upper():
                     company_info = {
-                        "name": company["name"] if "name" in company and company["name"] != "" else info.get('longName', f"{ticker.upper()} Corporation"),
-                        "sector": company["sector"] if "sector" in company and company["sector"] != "" else info.get('sector', "Technology"), 
+                        "name": company["name"] if "name" in company and company["name"] != "" else info.get("longName", f"{ticker.upper()} Corporation"),
+                        "sector": company["sector"] if "sector" in company and company["sector"] != "" else info.get("sector", "Technology"), 
                         "exchange": company["exchange"] if "exchange" in company and company["exchange"] != "" else info.get("fullExchangeName", "NASDAQ"),
-                        "market_cap": info.get('marketCap', random.randint(1000000000, 100000000000))
+                        "market_cap": info.get("marketCap", company["marketCap"]) or random.randint(1000000000, 100000000000)
                     }
                     exists = True
                     break
@@ -288,7 +287,6 @@ class HighScoreIntelligenceProvider:
 
     def _generate_news_data(self, ticker: str, additional_params: dict, news: list) -> dict:
         """Generate news analysis data for maximum scores."""
-        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 _generate_news_data {ticker}: {len(news)}")
         max_articles = additional_params.get("max_articles", 10)
         timeframe = additional_params.get("timeframe", "7D")
         # Convert timeframe to days
@@ -302,14 +300,11 @@ class HighScoreIntelligenceProvider:
             try:
                 published = datetime.strptime(art['pubDate'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
             except Exception as e:
-                bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 {e}")
                 continue
             
             if published < cutoff:
-                bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 aaaaaaaaaaaaaaaaaa")
                 continue
             
-            bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 bbbbbbbbbbbbbbb")
             title = art.get("title", "")
             summary = art.get("summary", "")
             url = art.get("canonicalUrl", {}).get("url", "")
@@ -340,10 +335,7 @@ class HighScoreIntelligenceProvider:
                 "sentiment": sentiment
             })
         
-        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 max_articles {max_articles}")
-        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 filtered {len(filtered)}")
         filtered_articles = filtered[:max_articles]
-        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 filtered_articles {len(filtered_articles)}")
 
         def summarize(articles):
             breakdown = {"positive": 0, "negative": 0, "neutral": 0}
