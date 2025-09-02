@@ -300,7 +300,7 @@ class HighScoreIntelligenceProvider:
         for art in news:
             art = art['content']
             try:
-                published = datetime.datetime.strptime(art['pubDate'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+                published = datetime.strptime(art['pubDate'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
             except Exception as e:
                 bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 {e}")
                 continue
