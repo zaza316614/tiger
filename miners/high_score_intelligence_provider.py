@@ -288,6 +288,7 @@ class HighScoreIntelligenceProvider:
 
     def _generate_news_data(self, ticker: str, additional_params: dict, news: list) -> dict:
         """Generate news analysis data for maximum scores."""
+        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 _generate_news_data {ticker}: {len(news)}")
         max_articles = additional_params.get("max_articles", 10)
         timeframe = additional_params.get("timeframe", "7D")
         # Convert timeframe to days
@@ -300,12 +301,15 @@ class HighScoreIntelligenceProvider:
             art = art['content']
             try:
                 published = datetime.datetime.strptime(art['pubDate'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
-            except Exception:
+            except Exception as e:
+                bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 {e}")
                 continue
             
             if published < cutoff:
+                bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 aaaaaaaaaaaaaaaaaa")
                 continue
             
+            bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 bbbbbbbbbbbbbbb")
             title = art.get("title", "")
             summary = art.get("summary", "")
             url = art.get("canonicalUrl", {}).get("url", "")
@@ -336,7 +340,10 @@ class HighScoreIntelligenceProvider:
                 "sentiment": sentiment
             })
         
-        articles = filtered[:max_articles]
+        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 max_articles {max_articles}")
+        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 filtered {len(filtered)}")
+        filtered_articles = filtered[:max_articles]
+        bt.logging.info(f"🔍🔍🔍🔍🔍🔍🔍🔍🔍 filtered_articles {len(filtered_articles)}")
 
         def summarize(articles):
             breakdown = {"positive": 0, "negative": 0, "neutral": 0}
@@ -354,10 +361,10 @@ class HighScoreIntelligenceProvider:
                 "top_sources": sorted({a["source"] for a in articles})
             }
         
-        summary = summarize(articles)
+        summary = summarize(filtered_articles)
         
         return {
-            "articles": articles,
+            "articles": filtered_articles,
             "summary": summary
         }
 
