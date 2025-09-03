@@ -88,7 +88,7 @@ class HighScoreIntelligenceProvider:
             
             response_data = {
                 "company": base_company_data,
-                "data": analysis_data,
+                # "data": analysis_data,
                 "confidenceScore": confidence_score
             }
             
