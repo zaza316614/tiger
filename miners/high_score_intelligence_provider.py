@@ -277,11 +277,11 @@ class HighScoreIntelligenceProvider:
         
         return filtered[:limit]
     
-    def build_sentiment_summary(self, articles, start_date, end_date):
+    def build_sentiment_summary(self, articles, timeframe):
         if not articles:
             return False
 
-        scores = [a["score"] for a in articles]
+        scores = [a["relevance_score"] for a in articles]
         avg_score = sum(scores) / len(scores)
 
         # Majority sentiment
@@ -294,8 +294,8 @@ class HighScoreIntelligenceProvider:
         sources = [{
             "source": a["source"],
             "sentiment": a["sentiment"],
-            "score": a["score"],
-            "timestamp": a["published_date"].isoformat()
+            "score": a["relevance_score"],
+            "timestamp": a["published_date"]
         } for a in articles]
 
         # Keywords
@@ -314,7 +314,7 @@ class HighScoreIntelligenceProvider:
             "confidence": confidence,
             "sources": sources,
             "keywords": keywords,
-            "timePeriod": f"{start_date.date()} to {end_date.date()}"
+            "timePeriod": timeframe
         }
 
     def _generate_sentiment_data(self, ticker: str, additional_params: dict, news: list) -> dict:
@@ -322,10 +322,8 @@ class HighScoreIntelligenceProvider:
         # Get parameters
         timeframe = additional_params.get("timeframe", "7D")
         timeframe_days = int(timeframe.replace("D", ""))
-        today = datetime.now(timezone.utc)
-        start_date = today - timedelta(days=timeframe_days)
         articles = self.fetch_yf_news(news, timeframe_days)
-        sentiment_summary = self.build_sentiment_summary(articles, start_date, today)
+        sentiment_summary = self.build_sentiment_summary(articles, timeframe)
         if sentiment_summary:
             return sentiment_summary
 
