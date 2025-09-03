@@ -81,6 +81,7 @@ class CompanyIntelligenceMiner:
             # Log confidence score for monitoring
             if hasattr(intelligence_response, 'data') and 'confidenceScore' in intelligence_response.data:
                 confidence = intelligence_response.data['confidenceScore']
+                intelligence_response['confidenceScore'] = confidence
                 bt.logging.info(f"🎯 Confidence score: {confidence}")
 
             synapse.intelligence_response = intelligence_response
