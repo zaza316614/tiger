@@ -25,7 +25,7 @@ class HighScoreIntelligenceProvider:
             # Get company info or create default
             company_info = {
                 "name": info.get('longName', f"{ticker.upper()} Corporation"),
-                "sector": info.get('sector', "Other"), 
+                "sector": info.get('sector', "Technology"), 
                 "exchange": info.get("fullExchangeName", "NASDAQ"),
                 "market_cap": info.get('marketCap', random.randint(1000000000, 100000000000))
             }
