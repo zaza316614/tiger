@@ -43,10 +43,10 @@ class HighScoreIntelligenceProvider:
                         "ticker": ticker.upper(),
                         "companyName": company["name"] if "name" in company and company["name"] != "" else info.get("longName", f"{ticker.upper()} Corporation"),
                         "website": company["website"] if "website" in company and company["website"] != "" else info.get('website', f"https://www.{ticker.lower()}.com"),
-                        "exchange": company["exchange"] if "exchange" in company and company["exchange"] != "" else info.get("fullExchangeName", "NASDAQ").toUpperCase(),
+                        "exchange": company["exchange"] if "exchange" in company and company["exchange"] != "" else info.get("fullExchangeName", "NASDAQ").upper(),
                         "marketCap": company["marketCap"] if "marketCap" in company and company["marketCap"] != 0 else info.get("marketCap", random.randint(1000000000, 100000000000)),
                         "sharePrice": info.get("currentPrice", round(random.uniform(50.0, 500.0), 2)),
-                        "sector": company["sector"] if "sector" in company and company["sector"] != "" else info.get("sector", "OTHER").toUpperCase(),
+                        "sector": company["sector"] if "sector" in company and company["sector"] != "" else info.get("sector", "OTHER").upper(),
                     }
                     exists = True
                     break
@@ -56,10 +56,10 @@ class HighScoreIntelligenceProvider:
                     "ticker": ticker.upper(),
                     "companyName": info.get("longName", f"{ticker.upper()} Corporation"),
                     "website": info.get('website', f"https://www.{ticker.lower()}.com"),
-                    "exchange": info.get("fullExchangeName", "NASDAQ").toUpperCase(),
+                    "exchange": info.get("fullExchangeName", "NASDAQ").upper(),
                     "marketCap": info.get("marketCap", random.randint(1000000000, 100000000000)),
                     "sharePrice": info.get("currentPrice", round(random.uniform(50.0, 500.0), 2)),
-                    "sector": info.get("sector", "OTHER").toUpperCase(), 
+                    "sector": info.get("sector", "OTHER").upper(), 
                 }
             
             # Generate analysis-specific data
