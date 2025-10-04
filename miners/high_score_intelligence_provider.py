@@ -92,12 +92,13 @@ class HighScoreIntelligenceProvider:
             response_data = {
                 "company": company_info,
                 # "data": analysis_data,
-                "confidenceScore": round(random.uniform(0.9, 0.95), 2)
+                "confidenceScore": 1.0
             }
             
             return IntelligenceResponse(
                 success=True,
                 data=response_data,
+                confidenceScore=response_data["confidenceScore"],
                 errorMessage=""
             )
             
@@ -290,7 +291,9 @@ class HighScoreIntelligenceProvider:
 
         return {
             "overallSentiment": overall,
+            "overall_sentiment": overall,
             "sentimentScore": avg_score,
+            "sentiment_score": avg_score,
             "confidence": confidence,
             "sources": sources,
             "keywords": keywords,

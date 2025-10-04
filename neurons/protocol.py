@@ -20,6 +20,7 @@ class IntelligenceResponse(BaseModel):
     """Structure for intelligence response."""
     success: bool = Field(..., description="Whether the request was successful")
     data: Dict = Field(default_factory=dict, description="Company intelligence data")
+    confidenceScore: float = Field(1.0, description="Confidence score of the intelligence")
     errorMessage: str = Field("", description="Error message if any")
 
 
