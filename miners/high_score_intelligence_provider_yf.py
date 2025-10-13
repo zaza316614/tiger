@@ -1,10 +1,21 @@
+import re
 import json
 import random
+import yfinance as yf
+from collections import Counter
 from datetime import datetime, timezone, timedelta
+import nltk
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 import bittensor as bt
 
 from neurons.protocol import AnalysisType, IntelligenceResponse
+
+
+# Ensure VADER is ready
+nltk.download('vader_lexicon')
+nltk.download('stopwords')
+sia = SentimentIntensityAnalyzer()
 
 
 class HighScoreIntelligenceProvider:
@@ -20,18 +31,22 @@ class HighScoreIntelligenceProvider:
         try:
             bt.logging.info(f"🎯 Generating high-score data for {ticker} - {analysis_type.value}")
 
+            yf_ticker = yf.Ticker(ticker.upper())
+            info = yf_ticker.info
+            news = yf_ticker.news or []
+
             exists = False
             for company_data in self.company_database["companies"]:
                 company = company_data["company"]
                 if ticker.upper() == company["ticker"].upper():
                     company_info = {
                         "ticker": ticker.upper(),
-                        "companyName": company["name"] if "name" in company and company["name"] != "" else ticker,
-                        "website": company["website"] if "website" in company and company["website"] != "" else f"https://www.{ticker.lower()}.com",
-                        "exchange": company["exchange"] if "exchange" in company and company["exchange"] != "" else "NASDAQ",
-                        "marketCap": company["marketCap"] if "marketCap" in company and company["marketCap"] else random.randint(1000000000, 100000000000),
-                        "sharePrice": round(random.uniform(50.0, 500.0), 2),
-                        "sector": company["sector"] if "sector" in company and company["sector"] != "" else "OTHER",
+                        "companyName": company["name"] if "name" in company and company["name"] != "" else info.get("longName", f"{ticker.upper()} Corporation"),
+                        "website": company["website"] if "website" in company and company["website"] != "" else info.get('website', f"https://www.{ticker.lower()}.com"),
+                        "exchange": company["exchange"] if "exchange" in company and company["exchange"] != "" else info.get("fullExchangeName", "NASDAQ").upper(),
+                        "marketCap": company["marketCap"] if "marketCap" in company and company["marketCap"] else info.get("marketCap", random.randint(1000000000, 100000000000)),
+                        "sharePrice": info.get("currentPrice", round(random.uniform(50.0, 500.0), 2)),
+                        "sector": company["sector"] if "sector" in company and company["sector"] != "" else info.get("sector", "OTHER").upper(),
                     }
                     exists = True
                     break
@@ -39,23 +54,23 @@ class HighScoreIntelligenceProvider:
             if not exists:
                 company_info = {
                     "ticker": ticker.upper(),
-                    "companyName": f"{ticker.upper()} Corporation",
-                    "website": f"https://www.{ticker.lower()}.com",
-                    "exchange": "NASDAQ",
-                    "marketCap": random.randint(1000000000, 100000000000),
-                    "sharePrice": round(random.uniform(50.0, 500.0), 2),
-                    "sector": "OTHER", 
+                    "companyName": info.get("longName", f"{ticker.upper()} Corporation"),
+                    "website": info.get('website', f"https://www.{ticker.lower()}.com"),
+                    "exchange": info.get("fullExchangeName", "NASDAQ").upper(),
+                    "marketCap": info.get("marketCap", random.randint(1000000000, 100000000000)),
+                    "sharePrice": info.get("currentPrice", round(random.uniform(50.0, 500.0), 2)),
+                    "sector": info.get("sector", "OTHER").upper(), 
                 }
             
             # Generate analysis-specific data
             if analysis_type == AnalysisType.CRYPTO:
                 analysis_data = self._generate_crypto_data(ticker, additional_params)
             elif analysis_type == AnalysisType.FINANCIAL:
-                analysis_data = self._generate_financial_data(ticker, additional_params, company_info)
+                analysis_data = self._generate_financial_data(ticker, additional_params, info)
             elif analysis_type == AnalysisType.SENTIMENT:
-                analysis_data = self._generate_sentiment_data(ticker, additional_params)
+                analysis_data = self._generate_sentiment_data(ticker, additional_params, news)
             elif analysis_type == AnalysisType.NEWS:
-                analysis_data = self._generate_news_data(ticker, additional_params)
+                analysis_data = self._generate_news_data(ticker, additional_params, news)
             else:
                 analysis_data = {}
             
@@ -199,10 +214,102 @@ class HighScoreIntelligenceProvider:
         
         return financial_data
 
-    def _generate_sentiment_data(self, ticker: str, additional_params: dict) -> dict:
+    def fetch_yf_news(self, news, days, limit=100):
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        filtered = []
+        
+        for art in news:
+            art = art['content']
+            try:
+                published = datetime.strptime(art['pubDate'], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            except Exception:
+                continue
+            
+            if published < cutoff:
+                continue
+            
+            title = art.get("title", "")
+            summary = art.get("summary", "")
+            url = art.get("canonicalUrl", {}).get("url", "")
+            source = art.get("provider", {}).get("displayName", "Unknown")
+            
+            def classify_sentiment(compound_score, pos_th=0.05, neg_th=-0.05):
+                if compound_score >= pos_th:
+                    return "positive"
+                elif compound_score <= neg_th:
+                    return "negative"
+                else:
+                    return "neutral"
+            # Sentiment
+            text_for_sentiment = summary or title
+            scores = sia.polarity_scores(text_for_sentiment)
+            sentiment = classify_sentiment(scores["compound"])
+            relevance = min(max(abs(scores["compound"]), 0.0), 1.0)
+            
+            filtered.append({
+                "title": title,
+                "summary": summary,
+                "url": url,
+                "source": source,
+                "published_date": published.isoformat(),
+                "relevance_score": relevance,
+                "sentiment": sentiment
+            })
+        
+        return filtered[:limit]
+    
+    def build_sentiment_summary(self, articles, timeframe):
+        if not articles:
+            return False
+
+        scores = [a["relevance_score"] for a in articles]
+        avg_score = sum(scores) / len(scores)
+
+        # Majority sentiment
+        sentiments = [a["sentiment"] for a in articles]
+        counts = Counter(sentiments)
+        overall = counts.most_common(1)[0][0]
+        confidence = counts[overall] / len(sentiments)
+
+        # Sources breakdown
+        sources = [{
+            "source": a["source"],
+            "sentiment": a["sentiment"],
+            "score": a["relevance_score"],
+            "timestamp": a["published_date"]
+        } for a in articles]
+
+        # Keywords
+        def extract_keywords(texts, top_n=5):
+            all_text = " ".join(texts).lower()
+            tokens = re.findall(r"\b[a-z]{3,}\b", all_text)
+            stopwords = set(nltk.corpus.stopwords.words("english"))
+            tokens = [t for t in tokens if t not in stopwords]
+            counts = Counter(tokens)
+            return [w for w, _ in counts.most_common(top_n)]
+        keywords = extract_keywords([a["title"] for a in articles])
+
+        return {
+            "overallSentiment": overall,
+            "overall_sentiment": overall,
+            "sentimentScore": avg_score,
+            "sentiment_score": avg_score,
+            "confidence": confidence,
+            "sources": sources,
+            "keywords": keywords,
+            "timePeriod": timeframe
+        }
+
+    def _generate_sentiment_data(self, ticker: str, additional_params: dict, news: list) -> dict:
         """Generate sentiment analysis data for maximum scores."""
         # Get parameters
         timeframe = additional_params.get("timeframe", "7D")
+        timeframe_days = int(timeframe.replace("D", ""))
+        articles = self.fetch_yf_news(news, timeframe_days)
+        sentiment_summary = self.build_sentiment_summary(articles, timeframe)
+        if sentiment_summary:
+            return sentiment_summary
+
         sources = additional_params.get("sources", ["social", "news", "analyst"])
         
         # Generate overall sentiment
@@ -256,13 +363,39 @@ class HighScoreIntelligenceProvider:
             "timePeriod": timeframe
         }
 
-    def _generate_news_data(self, ticker: str, additional_params: dict) -> dict:
+    def _generate_news_data(self, ticker: str, additional_params: dict, news: list) -> dict:
         """Generate news analysis data for maximum scores."""
         max_articles = additional_params.get("max_articles", 10)
         timeframe = additional_params.get("timeframe", "7D")
         # Convert timeframe to days
         timeframe_days = {"1D": 1, "3D": 3, "7D": 7, "14D": 14}.get(timeframe, 7)
 
+        articles = self.fetch_yf_news(news, timeframe_days, max_articles)
+        
+        def summarize(articles):
+            breakdown = {"positive": 0, "negative": 0, "neutral": 0}
+            for a in articles:
+                breakdown[a["sentiment"]] += 1
+            
+            dates = [a["published_date"] for a in articles]
+            return {
+                "total_articles": len(articles),
+                "date_range": {
+                    "start": min(dates) if dates else None,
+                    "end": max(dates) if dates else None
+                },
+                "sentiment_breakdown": breakdown,
+                "top_sources": sorted({a["source"] for a in articles})
+            }
+        
+        summary = summarize(articles)
+        
+        if len(articles) > 0:
+            return {
+                "articles": articles,
+                "summary": summary
+            }
+        
         # Generate articles
         articles = []
         sentiment_counts = {"positive": 0, "negative": 0, "neutral": 0}
