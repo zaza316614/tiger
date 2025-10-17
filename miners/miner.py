@@ -124,7 +124,7 @@ class CompanyIntelligenceMiner:
             while True:
                 try:
                     # Resync metagraph
-                    if step % 5 == 0:
+                    '''if step % 5 == 0:
                         self.metagraph.sync(subtensor=self.subtensor)
 
                         our_uid = None
@@ -134,16 +134,16 @@ class CompanyIntelligenceMiner:
                                 break
 
                         if our_uid is not None:
-                            # bt.logging.info(f"🎯 Our UID: {our_uid}")
-                            # bt.logging.info(f"💰 Our stake: {self.metagraph.total_stake[our_uid]}")
-                            # bt.logging.info(f"🌐 Our axon: {self.metagraph.axons[our_uid].ip}:{self.metagraph.axons[our_uid].port}")
+                            bt.logging.info(f"🎯 Our UID: {our_uid}")
+                            bt.logging.info(f"💰 Our stake: {self.metagraph.total_stake[our_uid]}")
+                            bt.logging.info(f"🌐 Our axon: {self.metagraph.axons[our_uid].ip}:{self.metagraph.axons[our_uid].port}")
 
                             # Check if our axon is properly registered
                             if (self.metagraph.axons[our_uid].ip == '0.0.0.0' or self.metagraph.axons[our_uid].port == 0):
                                 bt.logging.warning("⚠️ Axon not properly registered! Re-serving...")
                                 self.axon.serve(netuid=self.config.netuid, subtensor=self.subtensor)
                         else:
-                            bt.logging.warning("⚠️ Could not find our UID in metagraph")
+                            bt.logging.warning("⚠️ Could not find our UID in metagraph")'''
 
                     await asyncio.sleep(12)
 
